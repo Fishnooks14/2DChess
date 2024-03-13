@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Chess, Square } from "chess.js";
 
-const columns: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
-
 const ChessComponent: React.FC = () => {
     const chessRef = useRef(new Chess());
     let selectedSquare: string | null = null;
@@ -31,30 +29,26 @@ const ChessComponent: React.FC = () => {
     };
 
     const squareHandler = (move: string) => {
-        console.log("clicked: " + move + ", " + "selected: " + selectedSquare);
-
         if (moveableSquares.includes(move)) {
-            console.log("moveable square clicked");
             if (selectedSquare != null) {
                 moveHandler(selectedSquare, move);
             }
         } else if (move === selectedSquare) {
             selectedSquare = null;
             moveableSquares = [];
-            console.log("deselected");
         } else {
-            console.log("new square clicked");
             const squareData = chessRef.current.get(move as Square);
-            console.log(squareData);
             if (squareData != null) {
                 if (squareData.color === chessRef.current.turn()) {
                     selectedSquare = move;
-                    console.log(selectedSquare);
-                    const moves = chessRef.current.moves({
-                        square: move as Square,
-                    });
-                    console.log("possible moves: " + moves);
+                    const moves = chessRef.current
+                        .moves({
+                            square: move as Square,
+                            verbose: true,
+                        })
+                        .map((move) => move.to);
                     moveableSquares = moves;
+                    console.log(moveableSquares);
                 }
             }
         }
@@ -95,16 +89,12 @@ const ChessComponent: React.FC = () => {
     useEffect(() => {
         const newSquares = generateBoard();
         setSquares(newSquares);
-        console.log("updated");
     }, []);
 
     const updateBoard = () => {
         const newSquares = generateBoard();
         setSquares(newSquares);
-        console.log("updated");
     };
-
-    useEffect(() => {}, []);
 
     return (
         <div className="flex flex-col">
