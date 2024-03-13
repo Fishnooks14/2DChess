@@ -4,12 +4,13 @@ import { Chess, Square } from "chess.js";
 const ChessComponent: React.FC = () => {
   const chessRef = useRef(new Chess());
   let selectedSquare: string | null = null;
+  const [sneakySelected, setSneakySelected] = useState<string | null>(null);
   let moveableSquares: string[] = [];
-  const moveHandler = (
-    initial: string,
-    final: string,
-    promotionPiece?: string
-  ) => {
+  let promotionPiece: string | undefined = undefined;
+  const [showPromo, setShowPromo] = useState<boolean>(false);
+  const [lastMove, setLastMove] = useState<string | null>(null);
+
+  const moveHandler = (initial: string, final: string) => {
     const chess = chessRef.current;
     let moveOptions = {
       from: initial,
@@ -22,19 +23,37 @@ const ChessComponent: React.FC = () => {
     console.log(move);
 
     selectedSquare = null;
+    setSneakySelected(null);
     moveableSquares = [];
+    promotionPiece = undefined;
+    setLastMove(null);
 
     /* update board */
     updateBoard();
   };
 
+  const promotionHandler = (piece: string) => {
+    promotionPiece = piece;
+    moveHandler(sneakySelected!, lastMove!);
+    setShowPromo(false);
+  };
+
   const squareHandler = (move: string) => {
     if (moveableSquares.includes(move)) {
       if (selectedSquare != null) {
-        moveHandler(selectedSquare, move);
+        const isPromotion = requiresPromotion(move);
+        if (isPromotion) {
+          setLastMove(move);
+          console.log("lm: " + lastMove);
+          setShowPromo(true);
+        } else {
+          moveHandler(selectedSquare, move);
+        }
       }
     } else if (move === selectedSquare) {
       selectedSquare = null;
+      setSneakySelected(null);
+      setShowPromo(false);
       moveableSquares = [];
       updateBoard();
     } else {
@@ -42,6 +61,8 @@ const ChessComponent: React.FC = () => {
       if (squareData != null) {
         if (squareData.color === chessRef.current.turn()) {
           selectedSquare = move;
+          setShowPromo(false);
+          setSneakySelected(move);
           const moves = chessRef.current
             .moves({
               square: move as Square,
@@ -54,6 +75,44 @@ const ChessComponent: React.FC = () => {
         }
       }
     }
+  };
+
+  const requiresPromotion = (move: string) => {
+    const rank = move.charAt(1);
+    const isPawn = chessRef.current.get(selectedSquare as Square).type === "p";
+    const isPromotionRank = rank === "1" || rank === "8";
+    return isPawn && isPromotionRank;
+  };
+
+  const showPromotionMenu = () => {
+    if (!showPromo) {
+      return <></>;
+    }
+    const promotionPieces = ["q", "r", "b", "n"]; // Array of promotion piece types (Queen, Rook, Bishop, Knight)
+
+    // Function to handle promotion button click
+    const handlePromotionClick = (piece: string) => {
+      promotionHandler(piece);
+    };
+
+    return (
+      <div className="promotion-menu">
+        {/* Title (Optional) */}
+        <h2>Promote Pawn To:</h2>
+        {/* Button container */}
+        <div className="promotion-buttons">
+          {promotionPieces.map((piece) => (
+            <button
+              key={piece}
+              className="promotion-button"
+              onClick={() => handlePromotionClick(piece)}
+            >
+              {piece.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const [squares, setSquares] = useState<React.ReactElement[][]>([]);
@@ -115,6 +174,7 @@ const ChessComponent: React.FC = () => {
           {row}
         </div>
       ))}
+      {showPromotionMenu()}
     </div>
   );
 };
