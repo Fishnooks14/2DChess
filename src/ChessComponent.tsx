@@ -1,128 +1,120 @@
-import React, {useState, useRef, useEffect} from 'react';
-import { Chess } from 'chess.js'
+import React, { useState, useRef, useEffect } from "react";
+import { Chess, Square } from "chess.js";
 
-interface ChessComponentThings {
-  onInvalidMove: (errorMessage: string) => void;
-}
+const columns: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
-const columns: string[] = ["a", "b", "c", "d", "e", "f", "g", "h"]
+const ChessComponent: React.FC = () => {
+    const chessRef = useRef(new Chess());
+    let selectedSquare: string | null = null;
+    let moveableSquares: string[] = [];
+    const moveHandler = (
+        initial: string,
+        final: string,
+        promotionPiece?: string
+    ) => {
+        const chess = chessRef.current;
+        let moveOptions = {
+            from: initial,
+            to: final,
+            promotion: promotionPiece,
+        };
 
+        //If the move is valid, it will return the all relevant information and execute move. If not, it will be null.
+        const move = chess.move(moveOptions);
+        console.log(move);
 
+        selectedSquare = null;
+        moveableSquares = [];
 
-const ChessComponent: React.FC<ChessComponentThings> = ({ onInvalidMove }) => {
-  const chessRef = useRef(new Chess())
-  const [lastMove, setLastMove] = useState<string>("0");
-  const [active, setActive] = useState<boolean>(false);
-  const [lastSquare, setSquare] = useState<HtmlDivElement>();
+        /* update board */
+        updateBoard();
+    };
 
-  const moveHandler = (initial: string, final: string, promotionPiece?: string) => {
-    const chess = chessRef.current;
-    let moveOptions = { from: initial, to: final }
+    const squareHandler = (move: string) => {
+        console.log("clicked: " + move + ", " + "selected: " + selectedSquare);
 
-    //If a promotion piece is found in the parameter, it will add the information to the object
-    if (promotionPiece) {
-      moveOptions.promotion = promotionPiece
-    }
-
-    //If the move is valid, it will return the all relevant information and execute move. If not, it will be null.
-    console.log(moveOptions)
-    const move = chess.move(moveOptions)
-    
-    // if (move == null) {
-    //   //Creates an error message which can be accessed by the parent component
-    //   onInvalidMove("Invalid")
-    // } // Should automatically update board state if not invalid
-
-    return move
-  }
-
-
-
-  const squareHandler = (square: HTmlDivElement, info: string) => {
-    let row: String = String(parseInt(8 - (info[0])))
-    let column: String = columns[parseInt(info[1])]
-    let move: String = column + row
-    if (active) {
-      setActive(false)
-      const nullCheck: () => void = () => moveHandler(lastMove, move);
-      if (nullCheck() != null) {
-        let ele: HTMLElement = document.querySelector('.board').children[6].children[4]
-        setTimeout(() => {
-            ele.removeChild(ele.children[0]);
-            console.log(ele, ele.children[0]);
-            onInvalidMove("Invalid")
-        }, 0);
-      }
-    } else {
-      setActive(true) 
-      setLastMove(move)
-      setSquare(square)
-    }
-  }
-
-  const BoardGenerator = () => {
-    const rootRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-      const root = rootRef.current
-      if (root.children.length < 1) {
-        const board = document.createElement("div")
-        board.classList.add("board")
-        for (let i = 0; i < 8; i++) {
-          const row: HTMLDivElement = document.createElement("div");
-          row.classList.add("row")
-          for (let j = 0; j < 8; j++) {
-            const square: HTMLDivElement = document.createElement("div")
-            square.setAttribute('info', String(i) + String(j)) 
-            square.classList.add("square")
-            if (i == 0 || i == 1 || i == 6 || i == 7) {
-                const piece: HTMLDivElement = document.createElement("div")
-                piece.setAttribute('info', String(i) + String(j)) 
-                piece.classList.add("piece")
-                square.append(piece)
+        if (moveableSquares.includes(move)) {
+            console.log("moveable square clicked");
+            if (selectedSquare != null) {
+                moveHandler(selectedSquare, move);
             }
-            let k: int
-            if (i % 2 == 1) {
-              k = j + 1
-            } else {k = j}
-            let index: int = i * 8 + k
-            if (index % 2 == 0) {
-              square.classList.add("dark")
-            } else {
-              square.classList.add("light")
+        } else if (move === selectedSquare) {
+            selectedSquare = null;
+            moveableSquares = [];
+            console.log("deselected");
+        } else {
+            console.log("new square clicked");
+            const squareData = chessRef.current.get(move as Square);
+            console.log(squareData);
+            if (squareData != null) {
+                if (squareData.color === chessRef.current.turn()) {
+                    selectedSquare = move;
+                    console.log(selectedSquare);
+                    const moves = chessRef.current.moves({
+                        square: move as Square,
+                    });
+                    console.log("possible moves: " + moves);
+                    moveableSquares = moves;
+                }
             }
-            square.addEventListener('click', function() {
-              squareHandler(square, square.getAttribute('info'))
-            })
-            row.append(square)
-          }
-          board.append(row)
         }
+    };
 
+    const [squares, setSquares] = useState<React.ReactElement[][]>([]);
 
-        root.appendChild(board)
-      }
-      
-    })
+    const generateBoard = (): React.ReactElement[][] => {
+        const board = [];
+        for (let rank = 8; rank >= 1; rank--) {
+            const row = [];
+            for (let fileVal = 0; fileVal < 8; fileVal++) {
+                const file = String.fromCharCode(97 + fileVal);
+                const piece = chessRef.current.get((file + rank) as Square);
+                const square = (
+                    <button
+                        key={`${file}${rank}`}
+                        style={{
+                            width: "50px",
+                            height: "50px",
+                            background:
+                                (rank + file.charCodeAt(0)) % 2 === 0
+                                    ? "lightgray"
+                                    : "darkgray",
+                        }}
+                        onClick={() => squareHandler(file + rank)}
+                    >
+                        {piece ? piece.type : ""}
+                    </button>
+                );
+                row.push(square);
+            }
+            board.push(row);
+        }
+        return board;
+    };
 
-    return(
-      <div ref={rootRef}></div>
-    )
-    
-  }
+    useEffect(() => {
+        const newSquares = generateBoard();
+        setSquares(newSquares);
+        console.log("updated");
+    }, []);
 
+    const updateBoard = () => {
+        const newSquares = generateBoard();
+        setSquares(newSquares);
+        console.log("updated");
+    };
 
+    useEffect(() => {}, []);
 
-  // const resetChess = () => {
-  //   chessRef.current = new Chess()
-  // }
-  
-  return (
-    <div>
-      <BoardGenerator/>
-    </div>
-  )
+    return (
+        <div className="flex flex-col">
+            {squares.map((row) => (
+                <div key={row[0].key} style={{ display: "flex" }}>
+                    {row}
+                </div>
+            ))}
+        </div>
+    );
+};
 
-
-}
-
-export default ChessComponent; 
+export default ChessComponent;
